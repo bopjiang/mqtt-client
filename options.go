@@ -24,7 +24,7 @@ type Options struct {
 	TLSConfig            tls.Config
 	KeepAlive            time.Duration
 	PingTimeout          time.Duration
-	ConnectTimeout       time.Duration
+	ConnectTimeout       time.Duration // timeout of dailing a server
 	MaxReconnectInterval time.Duration
 	WriteTimeout         time.Duration
 	AutoReconnect        bool
