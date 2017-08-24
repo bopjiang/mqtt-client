@@ -60,3 +60,5 @@ func TestConnClient(t *testing.T) {
 	}
 
 }
+
+// TODO: read very big payload > 100M

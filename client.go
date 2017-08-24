@@ -3,11 +3,11 @@ package mqtt
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/url"
 	"sync"
-	"time"
 )
 
 // NewClient create a new mqtt client
@@ -47,7 +47,7 @@ func (c *client) Disconnect(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) Publish(ctx context.Context, topic string, qos byte, retained bool, payload interface{}) error {
+func (c *client) Publish(ctx context.Context, topic string, qos byte, retained bool, payload io.Reader) error {
 	return nil
 }
 
@@ -91,29 +91,4 @@ func (c *client) setConn(conn net.Conn) {
 	c.Lock()
 	c.conn = conn
 	c.Unlock()
-}
-
-func (c *client) cmdConnect(ctx context.Context) error {
-	msg := &messageConnect{
-		ClientID:  c.options.ClientID,
-		Keepalive: uint16(c.options.KeepAlive / time.Second),
-	}
-	deadline, ok := ctx.Deadline()
-	if ok {
-		c.conn.SetDeadline(deadline)
-	}
-
-	_, err := c.conn.Write(msg.Encode()) // full write??
-	if err != nil {
-		return err
-	}
-
-	readBuf := make([]byte, 1024)
-	_, err = c.conn.Read(readBuf)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("received: %x\n", readBuf)
-	return nil
 }
