@@ -1,6 +1,9 @@
 package packet
 
-import "bytes"
+import (
+	"bytes"
+	"io"
+)
 
 const (
 	protocolName    = "MQTT"
@@ -16,7 +19,7 @@ const (
 	connectFlagUserNameFlag       = 7
 )
 
-type MessageConnect struct {
+type Connect struct {
 	// flags
 	CleanSessionFlag byte // 0 or 1
 	//WillFlag: can be deduced from willTopic
@@ -34,7 +37,7 @@ type MessageConnect struct {
 	Password    string
 }
 
-func (msg *MessageConnect) Encode() []byte {
+func (msg *Connect) Write(w io.Writer) error {
 	// 2+4 bytes Protocol Name, 1 byte Protocol Level,  1 byte Connect Flags, 2 bytes Keep Alive
 	var (
 		connectFlags    byte
@@ -64,7 +67,7 @@ func (msg *MessageConnect) Encode() []byte {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	buf.WriteByte(ctrlTypeCONNECT<<4 | 0)
+	buf.WriteByte(CtrlTypeCONNECT << 4)
 	buf.Write(encodeLength(remainingLength))
 
 	buf.Write(encodeUint16(uint16(len(protocolName))))
@@ -98,5 +101,6 @@ func (msg *MessageConnect) Encode() []byte {
 		buf.WriteString(msg.Password)
 	}
 
-	return buf.Bytes()
+	_, err := buf.WriteTo(w)
+	return err
 }

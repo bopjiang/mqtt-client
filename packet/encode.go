@@ -7,7 +7,7 @@ import (
 
 func decodeUint16(b io.Reader) uint16 {
 	num := make([]byte, 2)
-	b.Read(num)
+	io.ReadFull(b, num) // TODO: error check?
 	return binary.BigEndian.Uint16(num)
 }
 

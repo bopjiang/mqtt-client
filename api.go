@@ -1,9 +1,6 @@
 package mqtt
 
-import (
-	"context"
-	"io"
-)
+import "context"
 
 // Client defines the interface of this library
 type Client interface {
@@ -17,7 +14,7 @@ type Client interface {
 	Disconnect(ctx context.Context) error
 
 	// Pushlish push message to topic
-	Publish(ctx context.Context, topic string, qos byte, retained bool, payload io.Reader) error
+	Publish(ctx context.Context, topic string, qos byte, retained bool, payload []byte) error
 
 	// Subscribe subscribes a single topic. Callback could be nil
 	Subscribe(ctx context.Context, topic string, qos byte, callback MessageHandler) error
@@ -40,5 +37,5 @@ type MessageHandler func(Client, Message)
 // Message define the interface of mqtt message(no QoS, retained info here)
 type Message interface {
 	Topic() string
-	Payload() io.Reader
+	Payload() []byte
 }

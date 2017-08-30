@@ -59,6 +59,20 @@ func TestConnClient(t *testing.T) {
 		return
 	}
 
+	if err := c.Subscribe(ctx, "test/jj2", 1, func(c mqtt.Client, msg mqtt.Message) {
+		t.Logf("received msg in test from topic [%s],  %s", msg.Topic(), msg.Payload())
+	}); err != nil {
+		t.Errorf("failed to subcribe, %s", err)
+		return
+	}
+
+	data := []byte("test123")
+	if err := c.Publish(ctx, "test/jj", 1, false, data); err != nil {
+		t.Errorf("failed to publish, %s", err)
+		return
+	}
+
+	time.Sleep(5 * time.Second)
 }
 
 // TODO: read very big payload > 100M
