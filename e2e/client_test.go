@@ -49,7 +49,7 @@ func TestConnClient(t *testing.T) {
 	opt := mqtt.Options{
 		Servers:      servers,
 		ClientID:     "e2e test client",
-		KeepAlive:    time.Second * 10,
+		KeepAlive:    time.Second * 5,
 		CleanSession: false,
 	}
 
@@ -73,7 +73,7 @@ func TestConnClient(t *testing.T) {
 		return
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(30 * time.Second)
 }
 
 // TODO: read very big payload > 100M

@@ -21,6 +21,8 @@ type client struct {
 
 	respWaitingQueueMutex sync.Mutex
 	respWaitingQueue      map[requestKey]chan interface{}
+
+	timerResetChan chan struct{}
 }
 
 type requestKey struct {
@@ -35,6 +37,7 @@ func NewClient(options Options) Client {
 		nextPacketID:     0,
 		handler:          &messageHandler{},
 		respWaitingQueue: make(map[requestKey]chan interface{}),
+		timerResetChan:   make(chan struct{}, 1),
 	}
 	return c
 }
@@ -57,6 +60,7 @@ func (c *client) Connect(ctx context.Context) error {
 		err := c.connect(ctx, s)
 		if err == nil {
 			go c.incomingLoop()
+			go c.outgoingLoop()
 			return nil
 		}
 
@@ -151,13 +155,27 @@ func (c *client) incomingLoop() error {
 			}
 
 			c.sendPublishAck(v)
-
+		case *packet.PingResp:
+			// reset read timer, do nothing
 		default:
 			log.Printf("invalid message type, %v", v)
 		}
 	}
 
 	return nil
+}
+
+func (c *client) outgoingLoop() {
+	keepAliveTimer := time.NewTimer(c.options.KeepAlive)
+	defer keepAliveTimer.Stop()
+	for {
+		select {
+		case <-keepAliveTimer.C:
+			c.sendPingReq()
+		case <-c.timerResetChan:
+		}
+		keepAliveTimer = time.NewTimer(c.options.KeepAlive)
+	}
 }
 
 func (c *client) getRequestFromQueue(msgType byte, msgID uint16) (ch chan interface{}, ok bool) {
@@ -203,4 +221,9 @@ func (c *client) waitResp(ctx context.Context, msgType byte, id uint16) (interfa
 func (c *client) sendPublishAck(p *packet.Publish) {
 	ack := packet.PubAck{ID: p.ID}
 	ack.Write(c.conn)
+}
+
+func (c *client) sendPingReq() {
+	msg := &packet.PingReq{}
+	msg.Write(c.conn)
 }

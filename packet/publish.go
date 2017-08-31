@@ -60,6 +60,7 @@ func (p *Publish) Write(w io.Writer) error {
 	if p.QosLevel != Qos0 {
 		remainingLength += 2 // Packet Identifier
 	}
+	remainingLength += len(p.Payload)
 
 	if p.RetainFlag {
 		fixHeaderflag |= 1 << publishOffsetRetain

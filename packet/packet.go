@@ -43,6 +43,10 @@ var createPacketFuncs = []createPacketFunc{
 	nil,              // 7
 	nil,              // 8
 	createSubAck,     // 9
+	nil,              //10
+	nil,              //11
+	nil,              //12
+	createPingResp,   //13
 
 }
 
