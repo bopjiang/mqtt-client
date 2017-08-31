@@ -12,8 +12,9 @@ import (
 
 func (c *client) cmdConnect(ctx context.Context) error {
 	msg := &packet.Connect{
-		ClientID:  c.options.ClientID,
-		Keepalive: uint16(c.options.KeepAlive / time.Second),
+		CleanSessionFlag: c.options.CleanSession,
+		ClientID:         c.options.ClientID,
+		Keepalive:        uint16(c.options.KeepAlive / time.Second),
 	}
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)

@@ -21,10 +21,11 @@ const (
 
 type Connect struct {
 	// flags
-	CleanSessionFlag byte // 0 or 1
+	CleanSessionFlag bool // 0 or 1
 	//WillFlag: can be deduced from willTopic
+
 	WillQoS        byte // 0, 1, 2
-	WillRetainFlag byte // 0 or 1
+	WillRetainFlag bool // 0 or 1
 	//password/username flag:can be deduced from username/password
 
 	Keepalive uint16
@@ -52,7 +53,9 @@ func (msg *Connect) Write(w io.Writer) error {
 		remainingLength += (2 + len(msg.WillMessage))
 		connectFlags |= byte(1) << connectFlagOffsetWillFlag
 		connectFlags |= msg.WillQoS << connectFlagOffsetWillQos
-		connectFlags |= msg.WillRetainFlag << connectFlagOffsetWillQos
+		if msg.WillRetainFlag {
+			connectFlags |= 1 << connectFlagOffsetWillQos
+		}
 	}
 
 	if len(msg.UserName) != 0 {
@@ -74,7 +77,7 @@ func (msg *Connect) Write(w io.Writer) error {
 	buf.Write([]byte(protocolName))
 	buf.WriteByte(protocolVersion) // mqtt version
 
-	if msg.CleanSessionFlag == 1 {
+	if msg.CleanSessionFlag {
 		connectFlags |= byte(1) << connectFlagOffsetCleanSession
 	}
 

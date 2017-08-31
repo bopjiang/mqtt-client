@@ -47,9 +47,10 @@ func MustGetMqttServers(t *testing.T) (servers []*url.URL) {
 func TestConnClient(t *testing.T) {
 	servers := MustGetMqttServers(t)
 	opt := mqtt.Options{
-		Servers:   servers,
-		ClientID:  "e2e test client",
-		KeepAlive: time.Second * 10,
+		Servers:      servers,
+		ClientID:     "e2e test client",
+		KeepAlive:    time.Second * 10,
+		CleanSession: true,
 	}
 
 	c := mqtt.NewClient(opt)
