@@ -6,6 +6,10 @@ import (
 	"log"
 )
 
+type PacketWriter interface {
+	Write(w io.Writer) error
+}
+
 type fixedHeader struct {
 	MessageType byte
 	Flag        byte

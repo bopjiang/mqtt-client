@@ -22,7 +22,7 @@ type client struct {
 	respWaitingQueueMutex sync.Mutex
 	respWaitingQueue      map[requestKey]chan interface{}
 
-	timerResetChan chan struct{}
+	timerResetChan chan int
 }
 
 type requestKey struct {
@@ -37,7 +37,7 @@ func NewClient(options Options) Client {
 		nextPacketID:     0,
 		handler:          &messageHandler{},
 		respWaitingQueue: make(map[requestKey]chan interface{}),
-		timerResetChan:   make(chan struct{}, 1),
+		timerResetChan:   make(chan int, 1),
 	}
 	return c
 }
@@ -219,11 +219,17 @@ func (c *client) waitResp(ctx context.Context, msgType byte, id uint16) (interfa
 }
 
 func (c *client) sendPublishAck(p *packet.Publish) {
-	ack := packet.PubAck{ID: p.ID}
-	ack.Write(c.conn)
+	c.sendPacket(&packet.PubAck{ID: p.ID})
 }
 
 func (c *client) sendPingReq() {
-	msg := &packet.PingReq{}
-	msg.Write(c.conn)
+	c.sendPacket(&packet.PingReq{})
+}
+
+func (c *client) sendPacket(p packet.PacketWriter) error {
+	c.Mutex.Lock()
+	c.Mutex.Unlock()
+	err := p.Write(c.conn)
+	c.timerResetChan <- 0
+	return err
 }

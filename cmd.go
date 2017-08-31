@@ -20,7 +20,7 @@ func (c *client) cmdConnect(ctx context.Context) error {
 		c.conn.SetDeadline(deadline)
 	}
 
-	if err := msg.Write(c.conn); err != nil { // TODO: full write??
+	if err := c.sendPacket(msg); err != nil {
 		return err
 	}
 
@@ -59,7 +59,7 @@ func (c *client) cmdPublish(ctx context.Context, topic string,
 		ID:         id,
 	}
 
-	if err := msg.Write(c.conn); err != nil {
+	if err := c.sendPacket(msg); err != nil {
 		return fmt.Errorf("failed to publish, %s", err)
 	}
 
@@ -85,7 +85,7 @@ func (c *client) cmdSubscribe(ctx context.Context, topic string, qos byte, callb
 		QosLevel:    []byte{qos},
 	}
 
-	if err := msg.Write(c.conn); err != nil {
+	if err := c.sendPacket(msg); err != nil {
 		return err
 	}
 
