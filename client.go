@@ -18,7 +18,9 @@ type client struct {
 	options      Options
 	nextPacketID uint16
 	handler      *messageHandler
-	resp         map[requestKey]chan interface{}
+
+	respWaitingQueueMutex sync.Mutex
+	respWaitingQueue      map[requestKey]chan interface{}
 }
 
 type requestKey struct {
@@ -29,10 +31,10 @@ type requestKey struct {
 // NewClient create a new mqtt client
 func NewClient(options Options) Client {
 	c := &client{
-		options:      options,
-		nextPacketID: 0,
-		handler:      &messageHandler{},
-		resp:         make(map[requestKey]chan interface{}),
+		options:          options,
+		nextPacketID:     0,
+		handler:          &messageHandler{},
+		respWaitingQueue: make(map[requestKey]chan interface{}),
 	}
 	return c
 }
@@ -54,7 +56,7 @@ func (c *client) Connect(ctx context.Context) error {
 	for _, s := range c.options.Servers {
 		err := c.connect(ctx, s)
 		if err == nil {
-			go c.readLoop()
+			go c.incomingLoop()
 			return nil
 		}
 
@@ -119,7 +121,7 @@ func (c *client) setConn(conn net.Conn) {
 	c.Unlock()
 }
 
-func (c *client) readLoop() error {
+func (c *client) incomingLoop() error {
 	for {
 		c.conn.SetReadDeadline(time.Now().Add(c.options.KeepAlive * 2))
 		pkt, err := packet.ReadPacket(c.conn)
@@ -130,14 +132,14 @@ func (c *client) readLoop() error {
 
 		switch v := pkt.(type) {
 		case *packet.PubAck:
-			ch, ok := c.resp[requestKey{packet.CtrlTypePUBACK, v.ID}]
+			ch, ok := c.getRequestFromQueue(packet.CtrlTypePUBACK, v.ID)
 			if !ok {
 				log.Printf("receive invalid puback, id=%d", v.ID)
 				continue
 			}
 			ch <- v
 		case *packet.SubAck:
-			ch, ok := c.resp[requestKey{packet.CtrlTypeSUBACK, v.ID}]
+			ch, ok := c.getRequestFromQueue(packet.CtrlTypeSUBACK, v.ID)
 			if !ok {
 				log.Printf("receive invalid suback, id=%d", v.ID)
 				continue
@@ -156,6 +158,13 @@ func (c *client) readLoop() error {
 	}
 
 	return nil
+}
+
+func (c *client) getRequestFromQueue(msgType byte, msgID uint16) (ch chan interface{}, ok bool) {
+	c.respWaitingQueueMutex.Lock()
+	ch, ok = c.respWaitingQueue[requestKey{msgType, msgID}]
+	c.respWaitingQueueMutex.Unlock()
+	return
 }
 
 func (c *client) waitPubAck(ctx context.Context, id uint16) (*packet.PubAck, error) {
@@ -178,7 +187,9 @@ func (c *client) waitSubAck(ctx context.Context, id uint16) (*packet.SubAck, err
 
 func (c *client) waitResp(ctx context.Context, msgType byte, id uint16) (interface{}, error) {
 	respChan := make(chan interface{})
-	c.resp[requestKey{msgType, id}] = respChan
+	c.respWaitingQueueMutex.Lock()
+	c.respWaitingQueue[requestKey{msgType, id}] = respChan
+	c.respWaitingQueueMutex.Unlock()
 	select {
 	case resp := <-respChan:
 		return resp, nil
