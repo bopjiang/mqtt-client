@@ -29,6 +29,7 @@ func (c *client) cmdConnect(ctx context.Context) error {
 		return fmt.Errorf("failed to read connack, %s", errRead)
 	}
 
+	c.conn.SetDeadline(time.Time{})
 	connAck, okAck := pkt.(*packet.ConnectAck)
 	if !okAck {
 		return fmt.Errorf("not connack")

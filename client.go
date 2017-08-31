@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/bopjiang/mqtt-client/packet"
 )
@@ -53,7 +54,7 @@ func (c *client) Connect(ctx context.Context) error {
 	for _, s := range c.options.Servers {
 		err := c.connect(ctx, s)
 		if err == nil {
-			go c.reader()
+			go c.readLoop()
 			return nil
 		}
 
@@ -118,8 +119,9 @@ func (c *client) setConn(conn net.Conn) {
 	c.Unlock()
 }
 
-func (c *client) reader() error {
+func (c *client) readLoop() error {
 	for {
+		c.conn.SetReadDeadline(time.Now().Add(c.options.KeepAlive * 2))
 		pkt, err := packet.ReadPacket(c.conn)
 		if err != nil {
 			log.Printf("failed to read packet, %s", err)
@@ -142,7 +144,12 @@ func (c *client) reader() error {
 			}
 			ch <- v
 		case *packet.Publish:
-			c.handler.Handle(c, &message{v.Topic, v.Payload})
+			if err := c.handler.Handle(c, &message{v.Topic, v.Payload}); err != nil {
+				log.Printf("failed to process message, %s", v)
+			}
+
+			c.sendPublishAck(v)
+
 		default:
 			log.Printf("invalid message type, %v", v)
 		}
@@ -180,4 +187,9 @@ func (c *client) waitResp(ctx context.Context, msgType byte, id uint16) (interfa
 		return nil, ctx.Err()
 	}
 
+}
+
+func (c *client) sendPublishAck(p *packet.Publish) {
+	ack := packet.PubAck{ID: p.ID}
+	ack.Write(c.conn)
 }

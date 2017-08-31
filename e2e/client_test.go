@@ -50,7 +50,7 @@ func TestConnClient(t *testing.T) {
 		Servers:      servers,
 		ClientID:     "e2e test client",
 		KeepAlive:    time.Second * 10,
-		CleanSession: true,
+		CleanSession: false,
 	}
 
 	c := mqtt.NewClient(opt)

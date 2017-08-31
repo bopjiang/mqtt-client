@@ -20,6 +20,7 @@ func (h *messageHandler) Register(topicFilters string, qos byte, callback Messag
 	log.Printf("register topicfilters=%s\n", topicFilters)
 }
 
-func (h *messageHandler) Handle(client Client, message Message) {
-	log.Printf("message received [%s]:  %s\n", message.Topic(), message.Payload())
+func (h *messageHandler) Handle(client Client, message Message) error {
+	log.Printf("message processed [%s]:  %s\n", message.Topic(), message.Payload())
+	return nil
 }

@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -25,4 +26,16 @@ func createPubAck(r io.Reader, remainingLen int, fixFlags byte) (interface{}, er
 	m.ID = binary.BigEndian.Uint16(buf)
 
 	return m, nil
+}
+
+func (p *PubAck) Write(w io.Writer) error {
+	buf := bytes.NewBuffer(nil)
+
+	remainingLength := 2
+
+	buf.WriteByte(CtrlTypePUBACK << 4)
+	buf.Write(encodeLength(remainingLength))
+	buf.Write(encodeUint16(p.ID))
+	_, err := buf.WriteTo(w)
+	return err
 }
