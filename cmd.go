@@ -49,14 +49,14 @@ func (c *client) cmdConnect(ctx context.Context) error {
 
 // TODO: qos2 not implemented yet
 func (c *client) cmdPublish(ctx context.Context, topic string,
-	qos byte, dup bool, retained bool, payload []byte, id uint16) error {
+	qos byte, dup bool, retained bool, payload []byte) error {
 	msg := &packet.Publish{
 		Topic:      topic,
 		DupFlag:    dup,
 		QosLevel:   qos,
 		RetainFlag: retained,
 		Payload:    payload,
-		ID:         id,
+		ID:         c.getPacketID(),
 	}
 
 	if err := c.sendPacket(msg); err != nil {
@@ -71,7 +71,7 @@ func (c *client) cmdPublish(ctx context.Context, topic string,
 	// It MUST send PUBACK packets in the order in which the corresponding PUBLISH packets were received (QoS 1 messages) [MQTT-4.6.0-2]
 	log.Printf("received puback: %+v, publish id=%d\n", ack, msg.ID)
 
-	if ack.ID != id {
+	if ack.ID != msg.ID {
 		return fmt.Errorf("puback id error")
 	}
 

@@ -4,7 +4,7 @@ import "log"
 
 type messageHandlerInterface interface {
 	Register(topicFilters []string, qos []byte, callback MessageHandler)
-	Handle(client Client, message Message)
+	Handle(message Message)
 }
 
 type filter struct {
@@ -20,7 +20,7 @@ func (h *messageHandler) Register(topicFilters string, qos byte, callback Messag
 	log.Printf("register topicfilters=%s\n", topicFilters)
 }
 
-func (h *messageHandler) Handle(client Client, message Message) error {
+func (h *messageHandler) Handle(message Message) error {
 	log.Printf("message processed [%s]:  %s\n", message.Topic(), message.Payload())
 	return nil
 }

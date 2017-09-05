@@ -60,7 +60,7 @@ func TestConnClient(t *testing.T) {
 		return
 	}
 
-	if err := c.Subscribe(ctx, "test/jj2", 1, func(c mqtt.Client, msg mqtt.Message) {
+	if err := c.Subscribe(ctx, "test/jj2", 1, func(msg mqtt.Message) {
 		t.Logf("received msg in test from topic [%s],  %s", msg.Topic(), msg.Payload())
 	}); err != nil {
 		t.Errorf("failed to subcribe, %s", err)

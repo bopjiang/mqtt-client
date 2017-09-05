@@ -2,6 +2,11 @@ package mqtt
 
 import "context"
 
+var (
+	// DisconnectedErr returned when client disconnected.
+	DisconnectedErr = "client disconnected"
+)
+
 // Client defines the interface of this library
 type Client interface {
 	// IsConnected returns the status of the client
@@ -11,7 +16,7 @@ type Client interface {
 	Connect(ctx context.Context) error
 
 	// Disconnect close client connection with a waiting time
-	Disconnect(ctx context.Context) error
+	Disconnect() error
 
 	// Pushlish push message to topic
 	Publish(ctx context.Context, topic string, qos byte, retained bool, payload []byte) error
@@ -32,7 +37,7 @@ type Client interface {
 // MessageHandler is a callback type which can be set to be
 // executed upon the arrival of messages published to topics
 // to which the client is subscribed.
-type MessageHandler func(Client, Message)
+type MessageHandler func(Message)
 
 // Message define the interface of mqtt message(no QoS, retained info here)
 type Message interface {

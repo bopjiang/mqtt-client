@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bopjiang/mqtt-client/packet"
@@ -15,6 +16,7 @@ import (
 type client struct {
 	sync.Mutex   // TODO: protect both conn and ID ?
 	conn         net.Conn
+	isConnected  int64 // 0 -- disconnected, 1 -- connected
 	options      Options
 	nextPacketID uint16
 	handler      *messageHandler
@@ -23,6 +25,7 @@ type client struct {
 	respWaitingQueue      map[requestKey]chan interface{}
 
 	timerResetChan chan int
+	exitChan       chan struct{}
 }
 
 type requestKey struct {
@@ -30,7 +33,7 @@ type requestKey struct {
 	id      uint16
 }
 
-// NewClient create a new mqtt client
+// NewClient create a new mqtt client(no reconn and retry, message pending will abandoned)
 func NewClient(options Options) Client {
 	c := &client{
 		options:          options,
@@ -42,9 +45,8 @@ func NewClient(options Options) Client {
 	return c
 }
 
-// TODO:
 func (c *client) IsConnected() bool {
-	return false
+	return atomic.LoadInt64(&c.isConnected) == 1
 }
 
 func (c *client) getPacketID() uint16 {
@@ -59,9 +61,7 @@ func (c *client) Connect(ctx context.Context) error {
 	for _, s := range c.options.Servers {
 		err := c.connect(ctx, s)
 		if err == nil {
-			go c.incomingLoop()
-			go c.outgoingLoop()
-			return nil
+			return c.start(ctx)
 		}
 
 		log.Printf("failed to connect to %s, %s", s, err)
@@ -71,16 +71,27 @@ func (c *client) Connect(ctx context.Context) error {
 	return lasterr
 }
 
-func (c *client) Disconnect(ctx context.Context) error {
-	c.Lock()
-	defer c.Unlock()
-	return c.conn.Close()
+func (c *client) start(ctx context.Context) error {
+	atomic.StoreInt64(&c.isConnected, 1)
+	c.exitChan = make(chan struct{})
+	go c.incomingLoop(c.conn)             // TODO: incoming return error, should notify to outgoing
+	go c.outgoingLoop(c.conn, c.exitChan) // outgoing error should close the incomingLoop
+	// the two loops exits, and we can start to try reconnect.
+	return nil
+}
+
+func (c *client) Disconnect() error {
+	msg := &packet.DisConnect{}
+	c.sendPacket(msg)
+	c.conn.Close()
+	atomic.StoreInt64(&c.isConnected, 0)
+	return nil
 }
 
 func (c *client) Publish(ctx context.Context, topic string, qos byte, retained bool, payload []byte) error {
 	// retry logic?
 	// reconn logic?
-	return c.cmdPublish(ctx, topic, qos, false, retained, payload, c.getPacketID())
+	return c.cmdPublish(ctx, topic, qos, false, retained, payload)
 }
 
 func (c *client) Subscribe(ctx context.Context, topic string, qos byte, callback MessageHandler) error {
@@ -125,13 +136,16 @@ func (c *client) setConn(conn net.Conn) {
 	c.Unlock()
 }
 
-func (c *client) incomingLoop() error {
+func (c *client) incomingLoop(conn net.Conn) error {
+	var retErr error
 	for {
 		c.conn.SetReadDeadline(time.Now().Add(c.options.KeepAlive * 2))
-		pkt, err := packet.ReadPacket(c.conn)
+		pkt, err := packet.ReadPacket(conn)
 		if err != nil {
 			log.Printf("failed to read packet, %s", err)
-			return err
+			atomic.StoreInt64(&c.isConnected, 0)
+			retErr = err
+			goto EXIT
 		}
 
 		switch v := pkt.(type) {
@@ -150,11 +164,14 @@ func (c *client) incomingLoop() error {
 			}
 			ch <- v
 		case *packet.Publish:
-			if err := c.handler.Handle(c, &message{v.Topic, v.Payload}); err != nil {
+			if err := c.handler.Handle(&message{v.Topic, v.Payload}); err != nil {
 				log.Printf("failed to process message, %s", v)
 			}
 
-			c.sendPublishAck(v)
+			if err := c.sendPublishAck(conn, v); err != nil {
+				retErr = err
+				goto EXIT
+			}
 		case *packet.PingResp:
 			// reset read timer, do nothing
 		default:
@@ -162,20 +179,27 @@ func (c *client) incomingLoop() error {
 		}
 	}
 
-	return nil
+EXIT:
+	conn.Close()
+	return retErr
 }
 
-func (c *client) outgoingLoop() {
+func (c *client) outgoingLoop(conn net.Conn, exitChan chan struct{}) {
 	keepAliveTimer := time.NewTimer(c.options.KeepAlive)
 	defer keepAliveTimer.Stop()
 	for {
 		select {
 		case <-keepAliveTimer.C:
-			c.sendPingReq()
+			c.sendPingReq(conn)
 		case <-c.timerResetChan:
+		case <-exitChan:
+			goto EXIT
 		}
 		keepAliveTimer = time.NewTimer(c.options.KeepAlive)
 	}
+
+EXIT:
+	conn.Close()
 }
 
 func (c *client) getRequestFromQueue(msgType byte, msgID uint16) (ch chan interface{}, ok bool) {
@@ -218,18 +242,21 @@ func (c *client) waitResp(ctx context.Context, msgType byte, id uint16) (interfa
 
 }
 
-func (c *client) sendPublishAck(p *packet.Publish) {
-	c.sendPacket(&packet.PubAck{ID: p.ID})
+func (c *client) sendPublishAck(conn net.Conn, p *packet.Publish) error {
+	return c.sendPacket(&packet.PubAck{ID: p.ID})
 }
 
-func (c *client) sendPingReq() {
-	c.sendPacket(&packet.PingReq{})
+func (c *client) sendPingReq(conn net.Conn) error {
+	return c.sendPacket(&packet.PingReq{})
 }
 
 func (c *client) sendPacket(p packet.PacketWriter) error {
-	c.Mutex.Lock()
-	c.Mutex.Unlock()
+	c.Lock()
+	defer c.Unlock()
 	err := p.Write(c.conn)
+	if err != nil {
+		atomic.StoreInt64(&c.isConnected, 0)
+	}
 	c.timerResetChan <- 0
 	return err
 }
