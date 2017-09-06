@@ -105,3 +105,20 @@ func (c *client) cmdSubscribe(ctx context.Context, topic string, qos byte, callb
 	c.handler.Register(topic, qos, callback)
 	return nil
 }
+
+func (c *client) cmdUnsubscribe(ctx context.Context, topics ...string) error {
+	msg := &packet.UnSubscribe{
+		ID: c.getPacketID(),
+	}
+
+	if err := c.sendPacket(msg); err != nil {
+		return err
+	}
+
+	_, err := c.waitUnsubAck(ctx, msg.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

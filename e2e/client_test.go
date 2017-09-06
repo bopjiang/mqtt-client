@@ -54,6 +54,7 @@ func TestConnClient(t *testing.T) {
 	}
 
 	c := mqtt.NewClient(opt)
+	defer c.Disconnect()
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	if err := c.Connect(ctx); err != nil {
 		t.Errorf("failed to connect, %s", err)

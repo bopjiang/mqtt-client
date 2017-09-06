@@ -99,15 +99,15 @@ func (c *client) Subscribe(ctx context.Context, topic string, qos byte, callback
 }
 
 func (c *client) SubscribeMultiple(ctx context.Context, filters map[string]byte, callback MessageHandler) error {
-	return nil
+	panic("not implemented")
 }
 
 func (c *client) Unsubscribe(ctx context.Context, topics ...string) error {
-	return nil
+	return c.cmdUnsubscribe(ctx, topics...)
 }
 
 func (c *client) SetRoute(topic string, callback MessageHandler) {
-	return
+	panic("not implemented")
 }
 
 func (c *client) connect(ctx context.Context, url *url.URL) error {
@@ -225,6 +225,15 @@ func (c *client) waitSubAck(ctx context.Context, id uint16) (*packet.SubAck, err
 	}
 
 	return v.(*packet.SubAck), nil
+}
+
+func (c *client) waitUnsubAck(ctx context.Context, id uint16) (*packet.UnSubAck, error) {
+	v, err := c.waitResp(ctx, packet.CtrlTypeUNSUBACK, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return v.(*packet.UnSubAck), nil
 }
 
 func (c *client) waitResp(ctx context.Context, msgType byte, id uint16) (interface{}, error) {
