@@ -26,6 +26,7 @@ type client struct {
 
 	timerResetChan chan int
 	exitChan       chan struct{}
+	wg             sync.WaitGroup
 }
 
 type requestKey struct {
@@ -74,8 +75,9 @@ func (c *client) Connect(ctx context.Context) error {
 func (c *client) start(ctx context.Context) error {
 	atomic.StoreInt64(&c.isConnected, 1)
 	c.exitChan = make(chan struct{})
-	go c.incomingLoop(c.conn)             // TODO: incoming return error, should notify to outgoing
-	go c.outgoingLoop(c.conn, c.exitChan) // outgoing error should close the incomingLoop
+	c.wg.Add(2)
+	go c.incomingLoop(c.conn) // TODO: incoming return error, should notify to outgoing
+	go c.outgoingLoop(c.conn) // outgoing error should close the incomingLoop
 	// the two loops exits, and we can start to try reconnect.
 	return nil
 }
@@ -84,7 +86,9 @@ func (c *client) Disconnect() error {
 	msg := &packet.DisConnect{}
 	c.sendPacket(msg)
 	c.conn.Close()
+	close(c.exitChan)
 	atomic.StoreInt64(&c.isConnected, 0)
+	c.wg.Wait()
 	return nil
 }
 
@@ -137,6 +141,7 @@ func (c *client) setConn(conn net.Conn) {
 }
 
 func (c *client) incomingLoop(conn net.Conn) error {
+	defer c.wg.Done()
 	var retErr error
 	for {
 		c.conn.SetReadDeadline(time.Now().Add(c.options.KeepAlive * 2))
@@ -184,7 +189,8 @@ EXIT:
 	return retErr
 }
 
-func (c *client) outgoingLoop(conn net.Conn, exitChan chan struct{}) {
+func (c *client) outgoingLoop(conn net.Conn) {
+	defer c.wg.Done()
 	keepAliveTimer := time.NewTimer(c.options.KeepAlive)
 	defer keepAliveTimer.Stop()
 	for {
@@ -192,7 +198,7 @@ func (c *client) outgoingLoop(conn net.Conn, exitChan chan struct{}) {
 		case <-keepAliveTimer.C:
 			c.sendPingReq(conn)
 		case <-c.timerResetChan:
-		case <-exitChan:
+		case <-c.exitChan:
 			goto EXIT
 		}
 		keepAliveTimer = time.NewTimer(c.options.KeepAlive)
