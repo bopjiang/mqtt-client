@@ -1,6 +1,9 @@
 package packet
 
-import "io"
+import (
+	"bytes"
+	"io"
+)
 
 type ConnectAck struct {
 	SessionPresent bool
@@ -28,4 +31,22 @@ func createConnectAck(r io.Reader, remainingLen int, fixFlags byte) (interface{}
 	m.ReturnCode = uint8(buf[1])
 
 	return m, nil
+}
+
+func (msg *ConnectAck) Write(w io.Writer) error {
+	buf := bytes.NewBuffer(nil)
+
+	remainingLength := 2
+
+	buf.WriteByte(CtrlTypeCONNECTACK << 4)
+	buf.Write(encodeLength(remainingLength))
+
+	var flag byte
+	if msg.SessionPresent {
+		flag |= 0x01
+	}
+	buf.WriteByte(flag)
+	buf.WriteByte(msg.ReturnCode)
+	_, err := buf.WriteTo(w)
+	return err
 }

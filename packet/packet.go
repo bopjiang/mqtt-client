@@ -38,7 +38,7 @@ type createPacketFunc func(r io.Reader, remainingLen int, fixFlags byte) (interf
 
 var createPacketFuncs = []createPacketFunc{
 	nil,
-	nil,              // 1
+	createConnect,    // 1
 	createConnectAck, // 2
 	createPublish,    // 3
 	createPubAck,     // 4
