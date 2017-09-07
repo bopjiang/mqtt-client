@@ -1,8 +1,9 @@
 // Package contains end to end client test cases
-package e2e_test
+package e2e
 
 import (
 	"context"
+	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -12,23 +13,21 @@ import (
 	mqtt "github.com/bopjiang/mqtt-client"
 )
 
+// all test use intenal test server or external server if configed.
+// external server has higher priority if available
+
 // test server injected using env.
 // eg: MQTT_TEST_SERVERS = "tcp://127.0.0.1:1083,tcp://127.0.0.1:1084"
 const EnvMqttTestServers = "MQTT_TEST_SERVERS"
 
-var Servers []string
-
-func MustEnv(t *testing.T, key string) (value string) {
-	if value = os.Getenv(key); value == "" {
-		t.Errorf("ENV %q is not set.", key)
-	}
-	return value
-}
-
 func MustGetMqttServers(t *testing.T) (servers []*url.URL) {
-	env := MustEnv(t, EnvMqttTestServers)
+	env := os.Getenv(EnvMqttTestServers)
 	ss := strings.Split(env, ",")
 	for _, s := range ss {
+		s = strings.TrimSpace(s)
+		if len(s) == 0 {
+			continue
+		}
 		url, err := url.Parse(s)
 		if err != nil {
 			t.Errorf("failed to parse server url, %s, %s", s, err)
@@ -38,7 +37,11 @@ func MustGetMqttServers(t *testing.T) (servers []*url.URL) {
 	}
 
 	if len(servers) == 0 {
-		t.Errorf("no server configured")
+		s := mustStartTestServer(t)
+		servers = append(servers, s.Endpoint())
+		log.Printf("using internal mqtt server, %s\n", servers)
+	} else {
+		log.Printf("using external mqtt server, %v\n", servers)
 	}
 
 	return

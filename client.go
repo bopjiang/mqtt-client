@@ -24,9 +24,10 @@ type client struct {
 	respWaitingQueueMutex sync.Mutex
 	respWaitingQueue      map[requestKey]chan interface{}
 
-	timerResetChan chan int
-	exitChan       chan struct{}
-	wg             sync.WaitGroup
+	timerResetChan       chan int
+	exitChan             chan struct{}
+	outgoingLoopExitChan chan struct{} // incoming error occured, and notify outgoingLoop
+	wg                   sync.WaitGroup
 }
 
 type requestKey struct {
@@ -37,11 +38,13 @@ type requestKey struct {
 // NewClient create a new mqtt client(no reconn and retry, message pending will abandoned)
 func NewClient(options Options) Client {
 	c := &client{
-		options:          options,
-		nextPacketID:     0,
-		handler:          &messageHandler{},
-		respWaitingQueue: make(map[requestKey]chan interface{}),
-		timerResetChan:   make(chan int, 1),
+		options:              options,
+		nextPacketID:         0,
+		handler:              &messageHandler{},
+		respWaitingQueue:     make(map[requestKey]chan interface{}),
+		timerResetChan:       make(chan int, 1),
+		outgoingLoopExitChan: make(chan struct{}),
+		exitChan:             make(chan struct{}),
 	}
 	return c
 }
@@ -83,6 +86,10 @@ func (c *client) start(ctx context.Context) error {
 }
 
 func (c *client) Disconnect() error {
+	if !c.IsConnected() {
+		return errors.New("not connected")
+	}
+
 	msg := &packet.DisConnect{}
 	c.sendPacket(msg)
 	c.conn.Close()
@@ -95,10 +102,13 @@ func (c *client) Disconnect() error {
 func (c *client) Publish(ctx context.Context, topic string, qos byte, retained bool, payload []byte) error {
 	// retry logic?
 	// reconn logic?
+	// qos level setting error?
+	// topicFilter name invalid
 	return c.cmdPublish(ctx, topic, qos, false, retained, payload)
 }
 
 func (c *client) Subscribe(ctx context.Context, topic string, qos byte, callback MessageHandler) error {
+	// only network problem? qos level setting error? topicFilter name invalid
 	return c.cmdSubscribe(ctx, topic, qos, callback)
 }
 
@@ -186,6 +196,7 @@ func (c *client) incomingLoop(conn net.Conn) error {
 
 EXIT:
 	conn.Close()
+	close(c.outgoingLoopExitChan)
 	return retErr
 }
 
@@ -198,6 +209,8 @@ func (c *client) outgoingLoop(conn net.Conn) {
 		case <-keepAliveTimer.C:
 			c.sendPingReq(conn)
 		case <-c.timerResetChan:
+		case <-c.outgoingLoopExitChan:
+			goto EXIT
 		case <-c.exitChan:
 			goto EXIT
 		}
@@ -270,8 +283,9 @@ func (c *client) sendPacket(p packet.PacketWriter) error {
 	defer c.Unlock()
 	err := p.Write(c.conn)
 	if err != nil {
-		atomic.StoreInt64(&c.isConnected, 0)
+		return err
 	}
+
 	c.timerResetChan <- 0
-	return err
+	return nil
 }
