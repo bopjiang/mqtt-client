@@ -97,6 +97,16 @@ func (c *mqttConn) incomingLoop() (err error) {
 				goto EXIT
 			}
 
+		case *packet.Publish:
+			ack := &packet.PubAck{
+				ID: v.ID,
+			}
+
+			if sendErr := c.Send(ack); sendErr != nil {
+				err = sendErr
+				goto EXIT
+			}
+
 		default:
 			c.Errorf("message not processed, %v", v)
 		}

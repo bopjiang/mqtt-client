@@ -122,8 +122,26 @@ func TestSubscribe(t *testing.T) {
 	}
 }
 
-func TestPublish(t *testing.T) {
+func TestPublishQos0(t *testing.T) {
+	c, cleanFn := MustConnectServer(t, nil)
+	defer cleanFn()
 
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	err := c.Publish(ctx, "test_topic", 0, false, []byte("hello"))
+	if err != nil {
+		t.Errorf("failed to publish, %s", err)
+	}
+}
+
+func TestPublishQos1(t *testing.T) {
+	c, cleanFn := MustConnectServer(t, nil)
+	defer cleanFn()
+
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	err := c.Publish(ctx, "test_topic", 1, false, []byte("hello"))
+	if err != nil {
+		t.Errorf("failed to publish, %s", err)
+	}
 }
 
 func TestKeepalive(t *testing.T) {

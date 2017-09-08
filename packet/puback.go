@@ -23,7 +23,7 @@ func createPubAck(r io.Reader, remainingLen int, fixFlags byte) (interface{}, er
 	}
 
 	m := &PubAck{}
-	m.ID = binary.BigEndian.Uint16(buf)
+	m.ID = binary.BigEndian.Uint16(buf[:2])
 
 	return m, nil
 }

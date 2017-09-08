@@ -63,6 +63,10 @@ func (c *client) cmdPublish(ctx context.Context, topic string,
 		return fmt.Errorf("failed to publish, %s", err)
 	}
 
+	if qos == 0 { // no need ack for QOS 0
+		return nil
+	}
+
 	ack, err := c.waitPubAck(ctx, msg.ID)
 	if err != nil {
 		return err
