@@ -5,12 +5,6 @@ import (
 	"io"
 )
 
-func decodeUint16(b io.Reader) uint16 {
-	num := make([]byte, 2)
-	io.ReadFull(b, num) // TODO: error check?
-	return binary.BigEndian.Uint16(num)
-}
-
 func encodeUint16(num uint16) []byte {
 	bytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(bytes, num)

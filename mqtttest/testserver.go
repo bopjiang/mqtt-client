@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/bopjiang/mqtt-client/packet"
 )
@@ -55,7 +56,6 @@ func (s *testServer) Stop() {
 	}
 
 	s.listener.Close()
-	close(s.exitCh)
 	s.wg.Wait()
 	log.Printf("test server %s stopped. ", s.listener.Addr())
 }
@@ -80,7 +80,8 @@ func (s *testServer) serve() {
 
 func (s *testServer) handleConn(conn net.Conn) {
 	defer s.wg.Done()
-	pkt, err := packet.ReadPacket(conn)
+	conn.SetReadDeadline(time.Now().Add(time.Second * 10))
+	pkt, err := packet.ReadPacket(conn) // TODO: if serve other protocol other than MQTT, how can we detected it?
 	if err != nil {
 		s.Errorf("failed to read CONNECT, %s", err)
 		return
@@ -96,5 +97,7 @@ func (s *testServer) handleConn(conn net.Conn) {
 
 	ack := &packet.ConnectAck{}
 	ack.Write(conn)
-	conn.Close()
+
+	c := newMQTTConn(s.t, conn, s.exitCh)
+	c.Serve()
 }

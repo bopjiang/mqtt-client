@@ -51,7 +51,7 @@ var createPacketFuncs = []createPacketFunc{
 	nil,              //11
 	nil,              //12
 	createPingResp,   //13
-
+	createDisConnect, //14
 }
 
 // ReadPacket unmarshel a control packet from Reader(normally net.Conn).
