@@ -74,42 +74,69 @@ func TestConnClient(t *testing.T) {
 	}
 }
 
-func TestConnClient2(t *testing.T) {
-	servers, cleanFn := MustGetMqttServers(t)
-	if cleanFn != nil {
-		defer cleanFn()
-	}
+func MustConnectServer(t *testing.T, clientOpt *mqtt.Options) (c mqtt.Client, cleanFn CleanFn) {
+	servers, servCleanfn := MustGetMqttServers(t)
 
-	// TODO: if internal server started, should be stopped when test finished.
 	opt := mqtt.Options{
 		Servers:      servers,
 		ClientID:     "e2e test client",
 		KeepAlive:    time.Second * 5,
-		CleanSession: false,
+		CleanSession: true,
 	}
 
-	c := mqtt.NewClient(opt)
-	defer c.Disconnect()
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	if clientOpt != nil {
+		if clientOpt.KeepAlive != 0 {
+			opt.KeepAlive = clientOpt.KeepAlive
+		}
+	}
+
+	c = mqtt.NewClient(opt)
+	cleanFn = func() {
+		if err := c.Disconnect(); err != nil {
+			log.Printf("client disconnect error, %s", err)
+		}
+
+		servCleanfn()
+	}
+
+	ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
 	if err := c.Connect(ctx); err != nil {
 		t.Errorf("failed to connect, %s", err)
 		return
 	}
 
-	if err := c.Subscribe(ctx, "test/jj2", 1, func(msg mqtt.Message) {
-		t.Logf("received msg in test from topic [%s],  %s", msg.Topic(), msg.Payload())
-	}); err != nil {
-		t.Errorf("failed to subcribe, %s", err)
-		return
-	}
-
-	data := []byte("test123")
-	if err := c.Publish(ctx, "test/jj", 1, false, data); err != nil {
-		t.Errorf("failed to publish, %s", err)
-		return
-	}
-
-	time.Sleep(15 * time.Second)
+	return
 }
 
-// TODO: read very big payload > 100M
+func TestSubscribe(t *testing.T) {
+	c, cleanFn := MustConnectServer(t, nil)
+	defer cleanFn()
+
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	err := c.Subscribe(ctx, "test_topic", 0, func(msg mqtt.Message) {
+		t.Logf("received msg in test from topic [%s],  %s", msg.Topic(), msg.Payload())
+	})
+
+	if err != nil {
+		t.Errorf("failed to subsribe, %s", err)
+	}
+}
+
+func TestPublish(t *testing.T) {
+
+}
+
+func TestKeepalive(t *testing.T) {
+	if testing.Short() {
+		return
+	}
+
+	keepAliveTime := time.Second * 1
+	c, cleanFn := MustConnectServer(t, &mqtt.Options{KeepAlive: keepAliveTime})
+	defer cleanFn()
+
+	time.Sleep(keepAliveTime * 5)
+	if !c.IsConnected() {
+		t.Errorf("keepalive failed")
+	}
+}

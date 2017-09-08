@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"bytes"
 	"encoding/binary"
 	"io"
 )
@@ -29,4 +30,15 @@ func createSubAck(r io.Reader, remainingLen int, fixFlags byte) (interface{}, er
 	m.ID = binary.BigEndian.Uint16(buf[:2])
 	m.RetCode = buf[2:]
 	return m, nil
+}
+
+func (p *SubAck) Write(w io.Writer) error {
+	buf := bytes.NewBuffer(nil)
+	remainingLength := 2 + len(p.RetCode)
+	buf.WriteByte(CtrlTypeSUBACK << 4)
+	buf.Write(encodeLength(remainingLength))
+	buf.Write(encodeUint16(p.ID))
+	buf.Write(p.RetCode)
+	_, err := buf.WriteTo(w)
+	return err
 }

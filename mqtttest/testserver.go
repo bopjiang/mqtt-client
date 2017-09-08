@@ -98,6 +98,9 @@ func (s *testServer) handleConn(conn net.Conn) {
 	ack := &packet.ConnectAck{}
 	ack.Write(conn)
 
-	c := newMQTTConn(s.t, conn, s.exitCh)
-	c.Serve()
+	mconn := newMQTTConn(s.t, conn, s.exitCh)
+	mconn.SetTimeout(time.Second * time.Duration(msg.Keepalive) * 2)
+	mconn.Serve() // might be panic in side?
+
+	// session restore ????
 }

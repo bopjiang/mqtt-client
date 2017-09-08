@@ -45,11 +45,11 @@ var createPacketFuncs = []createPacketFunc{
 	nil,              // 5
 	nil,              // 6
 	nil,              // 7
-	nil,              // 8
+	createSubcrible,  // 8
 	createSubAck,     // 9
 	nil,              //10
 	nil,              //11
-	nil,              //12
+	createPingReq,    //12
 	createPingResp,   //13
 	createDisConnect, //14
 }
@@ -70,6 +70,6 @@ func ReadPacket(r io.Reader) (interface{}, error) {
 	}
 
 	remainingLen := decodeLength(r)
-	//log.Printf("read next package, type=%d, len=%d", controlType, remainingLen)
+	log.Printf("read package, type=%d, len=%d", controlType, remainingLen)
 	return createPacketFuncs[controlType](r, remainingLen, fixFlags)
 }

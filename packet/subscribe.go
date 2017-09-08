@@ -2,6 +2,8 @@ package packet
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
 	"io"
 )
 
@@ -38,4 +40,34 @@ func (p *Subscribe) Write(w io.Writer) error {
 
 	_, err := buf.WriteTo(w)
 	return err
+}
+
+func createSubcrible(r io.Reader, remainingLen int, fixFlags byte) (interface{}, error) {
+	buf := make([]byte, remainingLen)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, err
+	}
+
+	msg := &Subscribe{}
+	msg.ID = binary.BigEndian.Uint16(buf[:2])
+
+	buf = buf[2:]
+	for {
+		flen := binary.BigEndian.Uint16(buf[:2])
+		if int(2+flen+1) > len(buf) {
+			return nil, errors.New("extra data in payload")
+
+		}
+		topicFilter := string(buf[2 : 2+flen])
+		qos := buf[2+flen] & 0x03
+		msg.TopicFilter = append(msg.TopicFilter, topicFilter)
+		msg.QosLevel = append(msg.QosLevel, qos)
+		if 2+int(flen)+1 == remainingLen-2 {
+			break
+		}
+
+		buf = buf[2+flen+1:]
+	}
+
+	return msg, nil
 }
