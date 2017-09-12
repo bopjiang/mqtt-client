@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/bopjiang/mqtt-client/packet"
+	"github.com/openim/mqtt-client/packet"
 )
 
 func (c *client) cmdConnect(ctx context.Context) error {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bopjiang/mqtt-client/packet"
+	"github.com/openim/mqtt-client/packet"
 )
 
 // testServer is MQTT test broker
