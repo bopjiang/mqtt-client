@@ -3,6 +3,7 @@ package mqtt
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/url"
@@ -278,7 +279,11 @@ func (c *client) sendPingReq(conn net.Conn) error {
 	return c.sendPacket(&packet.PingReq{})
 }
 
-func (c *client) sendPacket(p packet.PacketWriter) error {
+type writer interface {
+	Write(w io.Writer) error
+}
+
+func (c *client) sendPacket(p writer) error {
 	c.Lock()
 	defer c.Unlock()
 	err := p.Write(c.conn)

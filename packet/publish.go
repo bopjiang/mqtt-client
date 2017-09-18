@@ -7,6 +7,7 @@ import (
 )
 
 type Publish struct {
+	FixedHeader
 	Topic      string
 	DupFlag    bool
 	QosLevel   byte
@@ -27,60 +28,58 @@ const (
 	publishOffsetDup    = 3
 )
 
-func createPublish(r io.Reader, remainingLen int, fixFlags byte) (interface{}, error) {
-	m := &Publish{
-		RetainFlag: fixFlags|1<<publishOffsetRetain == 1,
-		QosLevel:   (fixFlags >> publishOffsetQos) & 0x03,
-		DupFlag:    fixFlags|1<<publishOffsetDup == 1,
-	}
+func (msg *Publish) Read(r io.Reader) error {
+	msg.RetainFlag = msg.Flag|1<<publishOffsetRetain == 1
+	msg.QosLevel = (msg.Flag >> publishOffsetQos) & 0x03
+	msg.DupFlag = msg.Flag|1<<publishOffsetDup == 1
 
-	buf := make([]byte, remainingLen)
+	buf := make([]byte, msg.RemainingLen)
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, err
+		return err
 	}
 
 	topicLen := binary.BigEndian.Uint16(buf[:2])
-	m.Topic = string(buf[2 : 2+topicLen])
-	if m.QosLevel != Qos0 {
-		m.ID = binary.BigEndian.Uint16(buf[2+topicLen : 2+topicLen+2])
+	msg.Topic = string(buf[2 : 2+topicLen])
+	if msg.QosLevel != Qos0 {
+		msg.ID = binary.BigEndian.Uint16(buf[2+topicLen : 2+topicLen+2])
 	}
 
-	m.Payload = buf[2+topicLen+2:]
+	msg.Payload = buf[2+topicLen+2:]
 	//log.Printf("received in pub %x\n", buf)
-	return m, nil
+	return nil
 }
 
-func (p *Publish) Write(w io.Writer) error {
+func (msg *Publish) Write(w io.Writer) error {
 	var (
 		remainingLength int
 		fixHeaderflag   byte
 	)
 
-	remainingLength += (2 + len(p.Topic)) // Topic Name
-	if p.QosLevel != Qos0 {
+	remainingLength += (2 + len(msg.Topic)) // Topic Name
+	if msg.QosLevel != Qos0 {
 		remainingLength += 2 // Packet Identifier
 	}
-	remainingLength += len(p.Payload)
+	remainingLength += len(msg.Payload)
 
-	if p.RetainFlag {
+	if msg.RetainFlag {
 		fixHeaderflag |= 1 << publishOffsetRetain
 	}
-	if p.QosLevel > 0 {
-		fixHeaderflag |= p.QosLevel << publishOffsetQos
+	if msg.QosLevel > 0 {
+		fixHeaderflag |= msg.QosLevel << publishOffsetQos
 	}
-	if p.DupFlag {
+	if msg.DupFlag {
 		fixHeaderflag |= 1 << publishOffsetDup
 	}
 
 	buf := bytes.NewBuffer(nil)
 	buf.WriteByte(CtrlTypePUBLISH<<4 | fixHeaderflag)
 	buf.Write(encodeLength(remainingLength))
-	buf.Write(encodeUint16(uint16(len(p.Topic))))
-	buf.WriteString(p.Topic)
-	if p.QosLevel != Qos0 {
-		buf.Write(encodeUint16(p.ID))
+	buf.Write(encodeUint16(uint16(len(msg.Topic))))
+	buf.WriteString(msg.Topic)
+	if msg.QosLevel != Qos0 {
+		buf.Write(encodeUint16(msg.ID))
 	}
-	buf.Write(p.Payload)
+	buf.Write(msg.Payload)
 	if _, err := buf.WriteTo(w); err != nil {
 		return err
 	}

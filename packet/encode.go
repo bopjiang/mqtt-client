@@ -5,6 +5,8 @@ import (
 	"io"
 )
 
+// copy from github.com/eclipse/paho.mqtt.golang
+
 func encodeUint16(num uint16) []byte {
 	bytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(bytes, num)

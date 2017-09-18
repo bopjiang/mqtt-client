@@ -22,6 +22,8 @@ const (
 )
 
 type Connect struct {
+	FixedHeader
+
 	// flags
 	CleanSessionFlag bool // 0 or 1
 	//WillFlag: can be deduced from willTopic
@@ -40,13 +42,11 @@ type Connect struct {
 	Password    string
 }
 
-func createConnect(r io.Reader, remainingLen int, fixFlags byte) (interface{}, error) {
-	buf := make([]byte, remainingLen)
+func (msg *Connect) Read(r io.Reader) error {
+	buf := make([]byte, msg.RemainingLen)
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, err
+		return err
 	}
-
-	msg := &Connect{}
 
 	// === The variable header ====
 	// for the CONNECT Packet consists of four fields in the following order:
@@ -54,17 +54,17 @@ func createConnect(r io.Reader, remainingLen int, fixFlags byte) (interface{}, e
 
 	// Protocol Name
 	if binary.BigEndian.Uint16(buf[:2]) != 4 {
-		return nil, errors.New("invalid protocol string len")
+		return errors.New("invalid protocol string len")
 	}
 
 	if string(buf[2:2+4]) != protocolName {
-		return nil, errors.New("invalid protocol name")
+		return errors.New("invalid protocol name")
 	}
 
 	// Protocol Level
 	v := uint8(buf[2+4])
 	if v != protocolLevel {
-		return nil, errors.New("invalid protocol level")
+		return errors.New("invalid protocol level")
 	}
 
 	// Connect Flags
@@ -113,7 +113,7 @@ func createConnect(r io.Reader, remainingLen int, fixFlags byte) (interface{}, e
 		passwordLen := binary.BigEndian.Uint16(payload[:2])
 		msg.Password = string(payload[2 : 2+passwordLen])
 	}
-	return msg, nil
+	return nil
 }
 
 func (msg *Connect) Write(w io.Writer) error {

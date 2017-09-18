@@ -6,6 +6,7 @@ import (
 )
 
 type ConnectAck struct {
+	FixedHeader
 	SessionPresent bool
 	ReturnCode     uint8
 }
@@ -19,18 +20,17 @@ var ConnackReturnCodes = map[uint8]string{
 	5: "Connection Refused: Not Authorised",
 }
 
-func createConnectAck(r io.Reader, remainingLen int, fixFlags byte) (interface{}, error) {
+func (msg *ConnectAck) Read(r io.Reader) error {
 	// TODO: move to ReadPacket, read full expect for Publish
-	buf := make([]byte, remainingLen)
+	buf := make([]byte, msg.RemainingLen)
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, err
+		return err
 	}
 
-	m := &ConnectAck{}
-	m.SessionPresent = (buf[0] & 0x01) == 1
-	m.ReturnCode = uint8(buf[1])
+	msg.SessionPresent = (buf[0] & 0x01) == 1
+	msg.ReturnCode = uint8(buf[1])
 
-	return m, nil
+	return nil
 }
 
 func (msg *ConnectAck) Write(w io.Writer) error {

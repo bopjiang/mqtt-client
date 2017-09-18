@@ -6,20 +6,21 @@ import (
 )
 
 type PingResp struct {
+	FixedHeader
 }
 
-func (p *PingResp) Write(w io.Writer) error {
+func (msg *PingResp) Read(r io.Reader) error {
+	if msg.RemainingLen != 0 {
+		return errors.New("invalid remaining length")
+	}
+
+	return nil
+}
+
+func (msg *PingResp) Write(w io.Writer) error {
 	buf := make([]byte, 2)
 	buf[0] = CtrlTypePINGRESP << 4
 	// buf[1]: Remaining Length (0)
 	_, err := w.Write(buf)
 	return err
-}
-
-func createPingResp(r io.Reader, remainingLen int, fixFlags byte) (interface{}, error) {
-	if remainingLen != 0 {
-		return nil, errors.New("invalid remaining length")
-	}
-
-	return &PingResp{}, nil
 }

@@ -104,3 +104,7 @@ func (s *testServer) handleConn(conn net.Conn) {
 
 	// session restore ????
 }
+
+// publish api from server
+func (s *testServer) Publish(topic string, qos byte, retained bool, payload []byte) {
+}

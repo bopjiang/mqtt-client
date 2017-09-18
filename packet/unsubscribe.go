@@ -11,6 +11,10 @@ type UnSubscribe struct {
 	TopicFilter []string
 }
 
+func (p *UnSubscribe) Read(w io.Reader) error {
+	return nil
+}
+
 func (p *UnSubscribe) Write(w io.Writer) error {
 	var remainingLength int
 

@@ -1,22 +1,37 @@
+// Package packet is a internal package, and contains MQTT packet encoding and decoding logic.
+//
+// This package is not a part of API, and supposed to be used .
 package packet
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 )
 
-type PacketWriter interface {
+var (
+	InvalidPacketLengthErr = errors.New("invalid remaining length")
+)
+
+type ControlPacket interface {
+	Read(r io.Reader) error
 	Write(w io.Writer) error
 }
 
-type fixedHeader struct {
-	MessageType byte
-	Flag        byte
+type FixedHeader struct {
+	MsgType      byte
+	Flag         byte
+	RemainingLen uint32 // up to 268,435,455 (256 MB)
 }
 
 const (
-	CtrlTypeReserved0   = byte(0)
+	maxRemainingLen = 268435455
+)
+
+// Command Code
+const (
+	CtrlTypeReserved1   = byte(0)
 	CtrlTypeCONNECT     = byte(1)
 	CtrlTypeCONNECTACK  = byte(2)
 	CtrlTypePUBLISH     = byte(3)
@@ -31,45 +46,69 @@ const (
 	CtrlTypePINGREQ     = byte(12)
 	CtrlTypePINGRESP    = byte(13)
 	CtrlTypeDISCONNECT  = byte(14)
-	CtrlTypeReserved15  = byte(15)
+	CtrlTypeReserved2   = byte(15)
 )
 
-type createPacketFunc func(r io.Reader, remainingLen int, fixFlags byte) (interface{}, error)
-
-var createPacketFuncs = []createPacketFunc{
-	nil,
-	createConnect,    // 1
-	createConnectAck, // 2
-	createPublish,    // 3
-	createPubAck,     // 4
-	nil,              // 5
-	nil,              // 6
-	nil,              // 7
-	createSubcrible,  // 8
-	createSubAck,     // 9
-	nil,              //10
-	nil,              //11
-	createPingReq,    //12
-	createPingResp,   //13
-	createDisConnect, //14
-}
-
-// ReadPacket unmarshel a control packet from Reader(normally net.Conn).
-// The first parameter returned is a control type specficed packet struct if no error.
-func ReadPacket(r io.Reader) (interface{}, error) {
-	var firstByte = make([]byte, 1)
-	if _, err := io.ReadFull(r, firstByte); err != nil {
+func ReadPacket(r io.Reader) (ControlPacket, error) {
+	first := make([]byte, 1)
+	if _, err := r.Read(first); err != nil {
 		return nil, err
 	}
 
-	controlType := firstByte[0] >> 4
-	fixFlags := firstByte[0] ^ 0x0F
-	if controlType == CtrlTypeReserved0 || controlType == CtrlTypeReserved15 {
+	controlType := first[0] >> 4
+	fixFlags := first[0] ^ 0x0F
+	if controlType == CtrlTypeReserved1 || controlType == CtrlTypeReserved2 {
 		log.Printf("read invalid control type, %d", controlType)
 		return nil, errors.New("invalid control type")
 	}
 
 	remainingLen := decodeLength(r)
-	log.Printf("read package, type=%d, len=%d", controlType, remainingLen)
-	return createPacketFuncs[controlType](r, remainingLen, fixFlags)
+	if remainingLen > maxRemainingLen {
+		return nil, errors.New("remaining length error")
+	}
+
+	h := &FixedHeader{
+		MsgType:      controlType,
+		Flag:         fixFlags,
+		RemainingLen: uint32(remainingLen),
+	}
+
+	p := createPacket(h)
+	if err := p.Read(r); err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+func createPacket(h *FixedHeader) ControlPacket {
+	switch h.MsgType {
+	case CtrlTypeCONNECT:
+		return &Connect{FixedHeader: *h}
+	case CtrlTypeCONNECTACK:
+		return &ConnectAck{FixedHeader: *h}
+	case CtrlTypePUBLISH:
+		return &Publish{FixedHeader: *h}
+	case CtrlTypePUBACK:
+		return &PubAck{FixedHeader: *h}
+	case CtrlTypeSUBSCRIBE:
+		return &Subscribe{FixedHeader: *h}
+	case CtrlTypeSUBACK:
+		return &SubAck{FixedHeader: *h}
+	/*
+		case CtrlTypeUNSUBSCRIBE:
+			return &UnSubscribe{FixedHeader: *h}
+		case CtrlTypeUNSUBACK:
+			return &UnSubAck{FixedHeader: *h}
+	*/
+	case CtrlTypePINGREQ:
+		return &PingReq{FixedHeader: *h}
+
+	case CtrlTypePINGRESP:
+		return &PingResp{FixedHeader: *h}
+	case CtrlTypeDISCONNECT:
+		return &DisConnect{FixedHeader: *h}
+	default:
+		panic(fmt.Sprintf("invalid msg type, %d", h.MsgType))
+	}
 }

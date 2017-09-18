@@ -13,6 +13,7 @@ type Client interface {
 	IsConnected() bool
 
 	// all the function below could block, use Context to cancel or timetout.
+	// connect to a mqtt server
 	Connect(ctx context.Context) error
 
 	// Disconnect close client connection with a waiting time

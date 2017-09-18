@@ -8,34 +8,34 @@ import (
 )
 
 type PubAck struct {
+	FixedHeader
 	ID uint16
 }
 
-func createPubAck(r io.Reader, remainingLen int, fixFlags byte) (interface{}, error) {
+func (msg *PubAck) Read(r io.Reader) error {
 	// TODO: move to ReadPacket, read full expect for Publish
-	if remainingLen != 2 {
-		return nil, errors.New("error remaining length field value")
+	if msg.RemainingLen != 2 {
+		return errors.New("error remaining length field value")
 	}
 
-	buf := make([]byte, remainingLen)
+	buf := make([]byte, msg.RemainingLen)
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, err
+		return err
 	}
 
-	m := &PubAck{}
-	m.ID = binary.BigEndian.Uint16(buf[:2])
+	msg.ID = binary.BigEndian.Uint16(buf[:2])
 
-	return m, nil
+	return nil
 }
 
-func (p *PubAck) Write(w io.Writer) error {
+func (msg *PubAck) Write(w io.Writer) error {
 	buf := bytes.NewBuffer(nil)
 
 	remainingLength := 2
 
 	buf.WriteByte(CtrlTypePUBACK << 4)
 	buf.Write(encodeLength(remainingLength))
-	buf.Write(encodeUint16(p.ID))
+	buf.Write(encodeUint16(msg.ID))
 	_, err := buf.WriteTo(w)
 	return err
 }

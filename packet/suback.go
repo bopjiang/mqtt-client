@@ -7,6 +7,7 @@ import (
 )
 
 type SubAck struct {
+	FixedHeader
 	ID      uint16
 	RetCode []byte
 }
@@ -18,18 +19,15 @@ var SubackReturnCodes = map[uint8]string{
 	0x80: "Failure",
 }
 
-func createSubAck(r io.Reader, remainingLen int, fixFlags byte) (interface{}, error) {
-	// TODO: move to ReadPacket, read full expect for Publish
-
-	buf := make([]byte, remainingLen)
+func (msg *SubAck) Read(r io.Reader) error {
+	buf := make([]byte, msg.RemainingLen)
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, err
+		return err
 	}
 
-	m := &SubAck{}
-	m.ID = binary.BigEndian.Uint16(buf[:2])
-	m.RetCode = buf[2:]
-	return m, nil
+	msg.ID = binary.BigEndian.Uint16(buf[:2])
+	msg.RetCode = buf[2:]
+	return nil
 }
 
 func (p *SubAck) Write(w io.Writer) error {
