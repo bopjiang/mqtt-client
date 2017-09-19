@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	mqtt "github.com/bopjiang/mqtt-client"
-	"github.com/bopjiang/mqtt-client/mqtttest"
+	mqtt "github.com/openim/mqtt-client"
+	"github.com/openim/mqtt-client/mqtttest"
 )
 
 // all test use intenal test server or external server if configed.

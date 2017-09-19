@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bopjiang/mqtt-client/packet"
+	"github.com/openim/mqtt-client/packet"
 )
 
 type client struct {
