@@ -1,5 +1,5 @@
 // Package contains end to end client test cases
-package e2e
+package e2e_test
 
 import (
 	"context"
@@ -21,9 +21,7 @@ import (
 // eg: MQTT_TEST_SERVERS = "tcp://127.0.0.1:1083,tcp://127.0.0.1:1084"
 const EnvMqttTestServers = "MQTT_TEST_SERVERS"
 
-type CleanFn func()
-
-func MustGetMqttServers(t *testing.T) (servers []*url.URL, cleanFn CleanFn) {
+func MustGetMqttServers(t *testing.T) (servers []*url.URL, cleanFn func()) {
 	env := os.Getenv(EnvMqttTestServers)
 	ss := strings.Split(env, ",")
 	for _, s := range ss {
@@ -51,30 +49,7 @@ func MustGetMqttServers(t *testing.T) (servers []*url.URL, cleanFn CleanFn) {
 	return
 }
 
-func TestConnClient(t *testing.T) {
-	servers, cleanFn := MustGetMqttServers(t)
-	if cleanFn != nil {
-		defer cleanFn()
-	}
-
-	// TODO: if internal server started, should be stopped when test finished.
-	opt := mqtt.Options{
-		Servers:      servers,
-		ClientID:     "e2e test client",
-		KeepAlive:    time.Second * 5,
-		CleanSession: true,
-	}
-
-	c := mqtt.NewClient(opt)
-	defer c.Disconnect()
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
-	if err := c.Connect(ctx); err != nil {
-		t.Errorf("failed to connect, %s", err)
-		return
-	}
-}
-
-func MustConnectServer(t *testing.T, clientOpt *mqtt.Options) (c mqtt.Client, cleanFn CleanFn) {
+func MustConnectServer(t *testing.T, clientOpt *mqtt.Options) (c mqtt.Client, cleanFn func()) {
 	servers, servCleanfn := MustGetMqttServers(t)
 
 	opt := mqtt.Options{
@@ -106,42 +81,6 @@ func MustConnectServer(t *testing.T, clientOpt *mqtt.Options) (c mqtt.Client, cl
 	}
 
 	return
-}
-
-func TestSubscribe(t *testing.T) {
-	c, cleanFn := MustConnectServer(t, nil)
-	defer cleanFn()
-
-	ctx, _ := context.WithTimeout(context.Background(), time.Second)
-	err := c.Subscribe(ctx, "test_topic", 0, func(msg mqtt.Message) {
-		t.Logf("received msg in test from topic [%s],  %s", msg.Topic(), msg.Payload())
-	})
-
-	if err != nil {
-		t.Errorf("failed to subsribe, %s", err)
-	}
-}
-
-func TestPublishQos0(t *testing.T) {
-	c, cleanFn := MustConnectServer(t, nil)
-	defer cleanFn()
-
-	ctx, _ := context.WithTimeout(context.Background(), time.Second)
-	err := c.Publish(ctx, "test_topic", 0, false, []byte("hello"))
-	if err != nil {
-		t.Errorf("failed to publish, %s", err)
-	}
-}
-
-func TestPublishQos1(t *testing.T) {
-	c, cleanFn := MustConnectServer(t, nil)
-	defer cleanFn()
-
-	ctx, _ := context.WithTimeout(context.Background(), time.Second)
-	err := c.Publish(ctx, "test_topic", 1, false, []byte("hello"))
-	if err != nil {
-		t.Errorf("failed to publish, %s", err)
-	}
 }
 
 func TestKeepalive(t *testing.T) {
