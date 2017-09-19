@@ -95,15 +95,12 @@ func createPacket(h *FixedHeader) ControlPacket {
 		return &Subscribe{FixedHeader: *h}
 	case CtrlTypeSUBACK:
 		return &SubAck{FixedHeader: *h}
-	/*
-		case CtrlTypeUNSUBSCRIBE:
-			return &UnSubscribe{FixedHeader: *h}
-		case CtrlTypeUNSUBACK:
-			return &UnSubAck{FixedHeader: *h}
-	*/
+	case CtrlTypeUNSUBSCRIBE:
+		return &UnSubscribe{FixedHeader: *h}
+	case CtrlTypeUNSUBACK:
+		return &UnSubAck{FixedHeader: *h}
 	case CtrlTypePINGREQ:
 		return &PingReq{FixedHeader: *h}
-
 	case CtrlTypePINGRESP:
 		return &PingResp{FixedHeader: *h}
 	case CtrlTypeDISCONNECT:

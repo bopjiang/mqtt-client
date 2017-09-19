@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"bytes"
 	"encoding/binary"
 	"io"
 )
@@ -24,6 +25,12 @@ func (msg *UnSubAck) Read(r io.Reader) error {
 	return nil
 }
 
-func (msg *UnSubAck) Write(r io.Writer) error {
-	return nil
+func (msg *UnSubAck) Write(w io.Writer) error {
+	var remainingLength = 2
+	buf := bytes.NewBuffer(nil)
+	buf.WriteByte(CtrlTypeUNSUBACK<<4 | 0x02)
+	buf.Write(encodeLength(remainingLength))
+	buf.Write(encodeUint16(msg.ID))
+	_, err := buf.WriteTo(w)
+	return err
 }

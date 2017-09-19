@@ -88,6 +88,12 @@ func (s *CommandTestSuite) TestKeepalive() {
 	s.a.True(s.c.IsConnected(), "keepalive failed")
 }
 
+func (s *CommandTestSuite) TestUnSubscribe() {
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	err := s.c.Unsubscribe(ctx, "test_topic", "test_topic2")
+	s.a.Nilf(err, "failed to unsubsribe, %s", err)
+}
+
 func TestCommandTestSuite(t *testing.T) {
 	suite.Run(t, new(CommandTestSuite))
 }
