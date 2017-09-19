@@ -112,7 +112,8 @@ func (c *client) cmdSubscribe(ctx context.Context, topic string, qos byte, callb
 
 func (c *client) cmdUnsubscribe(ctx context.Context, topics ...string) error {
 	msg := &packet.UnSubscribe{
-		ID: c.getPacketID(),
+		ID:          c.getPacketID(),
+		TopicFilter: topics,
 	}
 
 	if err := c.sendPacket(msg); err != nil {

@@ -188,10 +188,17 @@ func (c *client) incomingLoop(conn net.Conn) error {
 				retErr = err
 				goto EXIT
 			}
+		case *packet.UnSubAck:
+			ch, ok := c.getRequestFromQueue(packet.CtrlTypeUNSUBACK, v.ID)
+			if !ok {
+				log.Printf("receive invalid unsuback, id=%d", v.ID)
+				continue
+			}
+			ch <- v
 		case *packet.PingResp:
 			// reset read timer, do nothing
 		default:
-			log.Printf("invalid message type, %v", v)
+			log.Printf("invalid message type, %+v", v)
 		}
 	}
 

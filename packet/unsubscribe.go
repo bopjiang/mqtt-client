@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"log"
 )
 
 // TODO: subscribe multiple topics
@@ -23,6 +24,7 @@ func (msg *UnSubscribe) Read(r io.Reader) error {
 	msg.ID = binary.BigEndian.Uint16(buf[:2])
 	buf = buf[2:]
 	for {
+		log.Printf("buf:%x, len=%d\n", buf, len(buf))
 		flen := binary.BigEndian.Uint16(buf[:2])
 		if int(2+flen) > len(buf) {
 			return errors.New("extra data in payload")
@@ -31,7 +33,7 @@ func (msg *UnSubscribe) Read(r io.Reader) error {
 
 		topicFilter := string(buf[2 : 2+flen])
 		msg.TopicFilter = append(msg.TopicFilter, topicFilter)
-		if 2+int(flen) == int(msg.RemainingLen-2) {
+		if len(buf)-int(2+flen) < 2 {
 			break
 		}
 

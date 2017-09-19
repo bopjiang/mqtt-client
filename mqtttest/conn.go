@@ -106,9 +106,18 @@ func (c *mqttConn) incomingLoop() (err error) {
 				err = sendErr
 				goto EXIT
 			}
+		case *packet.UnSubscribe:
+			ack := &packet.UnSubAck{
+				ID: v.ID,
+			}
+
+			if sendErr := c.Send(ack); sendErr != nil {
+				err = sendErr
+				goto EXIT
+			}
 
 		default:
-			c.Errorf("message not processed, %v", v)
+			c.Errorf("message not processed, %+v", v)
 		}
 	}
 
