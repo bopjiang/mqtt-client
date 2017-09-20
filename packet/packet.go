@@ -56,7 +56,7 @@ func ReadPacket(r io.Reader) (ControlPacket, error) {
 	}
 
 	controlType := first[0] >> 4
-	fixFlags := first[0] ^ 0x0F
+	fixFlags := first[0] & 0x0F
 	if controlType == CtrlTypeReserved1 || controlType == CtrlTypeReserved2 {
 		log.Printf("read invalid control type, %d", controlType)
 		return nil, errors.New("invalid control type")

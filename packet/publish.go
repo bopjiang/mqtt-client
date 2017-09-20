@@ -29,9 +29,9 @@ const (
 )
 
 func (msg *Publish) Read(r io.Reader) error {
-	msg.RetainFlag = msg.Flag|1<<publishOffsetRetain == 1
+	msg.RetainFlag = (msg.Flag | 1<<publishOffsetRetain) == 1
 	msg.QosLevel = (msg.Flag >> publishOffsetQos) & 0x03
-	msg.DupFlag = msg.Flag|1<<publishOffsetDup == 1
+	msg.DupFlag = (msg.Flag | 1<<publishOffsetDup) == 1
 
 	buf := make([]byte, msg.RemainingLen)
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -40,12 +40,13 @@ func (msg *Publish) Read(r io.Reader) error {
 
 	topicLen := binary.BigEndian.Uint16(buf[:2])
 	msg.Topic = string(buf[2 : 2+topicLen])
+	buf = buf[2+topicLen:]
 	if msg.QosLevel != Qos0 {
-		msg.ID = binary.BigEndian.Uint16(buf[2+topicLen : 2+topicLen+2])
+		msg.ID = binary.BigEndian.Uint16(buf[:2])
 	}
 
-	msg.Payload = buf[2+topicLen+2:]
-	//log.Printf("received in pub %x\n", buf)
+	msg.Payload = buf[2:]
+	//log.Printf("received in pub %+v\n", msg)
 	return nil
 }
 

@@ -98,6 +98,10 @@ func (c *mqttConn) incomingLoop() (err error) {
 			}
 
 		case *packet.Publish:
+			if v.QosLevel == 0 {
+				continue
+			}
+
 			ack := &packet.PubAck{
 				ID: v.ID,
 			}

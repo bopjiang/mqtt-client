@@ -13,7 +13,6 @@ type PubAck struct {
 }
 
 func (msg *PubAck) Read(r io.Reader) error {
-	// TODO: move to ReadPacket, read full expect for Publish
 	if msg.RemainingLen != 2 {
 		return errors.New("error remaining length field value")
 	}
